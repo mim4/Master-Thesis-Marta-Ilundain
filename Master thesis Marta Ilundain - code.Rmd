@@ -1,0 +1,1172 @@
+---
+title: "TFM"
+author: "Marta Ilundain Martínez" 
+output:
+  pdf_document: default
+  html_document: default
+heather-includes:
+- \usepackage[english]{babel}
+- \usepackage{amsmath}
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \usepackage{float}
+- \usepackage{booktabs}
+- \fancyfoot[CO, CE]{\thepage}
+- \fancyfoot[LE, RO]{Multivariant analysis, third exercise}
+---
+
+```{r setup, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+bmatrix = function(x, digits=NULL, ...) {
+  library(xtable)
+  default_args = list(include.colnames=FALSE, only.contents=TRUE,
+                      include.rownames=FALSE, hline.after=NULL, comment=FALSE,
+                      print.results=FALSE)
+  passed_args = list(...)
+  calling_args = c(list(x=xtable(x, digits=digits)),
+                   c(passed_args,
+                     default_args[setdiff(names(default_args), names(passed_args))]))
+  cat("\\begin{bmatrix}\n",
+      do.call(print.xtable, calling_args),
+      "\\end{bmatrix}\n")
+}
+```
+
+
+# TFM
+
+### Dataset
+
+
+```{r include=FALSE}
+set.seed(1998)
+load("D:/Máster/Asignaturas/TFM/datos-calls.RData")
+```
+
+```{r include=FALSE} 
+dat[,8] = dat[,8] + 6 
+```
+
+```{r include=FALSE}
+# One hot encoding 
+library(fastDummies)
+dat = dummy_cols(dat,  select_columns = "wd")
+dat = dat[,-c(15)]
+colnames(dat)
+colnames(dat)=c("type0","type1","type2","type3","wd","d","m","y",'Mon','Tue','Wed','Thu','Fri','Sat')
+```
+
+```{r include=FALSE}
+library(readr)
+library(Metrics)
+
+weather <- read_csv("D:/Máster/Asignaturas/TFM/weather.csv")
+weather = weather[,7]  
+weather$prec = as.factor(weather$prec)
+```
+
+
+```{r include=FALSE}
+weather$prec <- gsub("\\,", ".", weather$prec)
+weather$prec = as.numeric(weather$prec)
+weather[is.na(weather)] = 0 
+```
+
+```{r include=FALSE}
+data = cbind(dat, weather)
+rm(dat,weather)
+str(data)
+```
+
+```{r}
+data$Nt = rowSums(data[,1:4])
+```
+
+
+
+
+### Visualization of the data.
+
+
+```{r include=FALSE}
+# Total number of calls for each type
+# total0 = sum(data$type0)
+# total1 = sum(data$type1)
+# total2 = sum(data$type2)
+# total3 = sum(data$type3)
+
+# Mean of the total number of calls per day for each type (for the 4079 observations) 
+# mean0 = mean(data$type0)
+# mean1 = mean(data$type1)
+# mean2 = mean(data$type2)
+# mean3 = mean(data$type3)
+
+# Total number of calls 
+# totalcalls = 87087+34116+8983+4520
+
+# Total number of calls for each year
+# calls2007 = sum(data$type0[data$y == 2007]) + sum(data$type1[data$y == 2007]) + sum(data$type2[data$y == 2007]) + sum(data$type3[data$y == 2007])
+# calls2008 = sum(data$type0[data$y == 2008]) + sum(data$type1[data$y == 2008]) + sum(data$type2[data$y == 2008]) + sum(data$type3[data$y == 2008])
+# calls2009 = sum(data$type0[data$y == 2009]) + sum(data$type1[data$y == 2009]) + sum(data$type2[data$y == 2009]) + sum(data$type3[data$y == 2009])
+# calls2010 = sum(data$type0[data$y == 2010]) + sum(data$type1[data$y == 2010]) + sum(data$type2[data$y == 2010]) + sum(data$type3[data$y == 2010])
+# calls2011 = sum(data$type0[data$y == 2011]) + sum(data$type1[data$y == 2011]) + sum(data$type2[data$y == 2011]) + sum(data$type3[data$y == 2011])
+# calls2012 = sum(data$type0[data$y == 2012]) + sum(data$type1[data$y == 2012]) + sum(data$type2[data$y == 2012]) + sum(data$type3[data$y == 2012])
+# calls2013 = sum(data$type0[data$y == 2013]) + sum(data$type1[data$y == 2013]) + sum(data$type2[data$y == 2013]) + sum(data$type3[data$y == 2013])
+# calls2014 = sum(data$type0[data$y == 2014]) + sum(data$type1[data$y == 2014]) + sum(data$type2[data$y == 2014]) + sum(data$type3[data$y == 2014])
+# calls2015 = sum(data$type0[data$y == 2015]) + sum(data$type1[data$y == 2015]) + sum(data$type2[data$y == 2015]) + sum(data$type3[data$y == 2015])
+# calls2016 = sum(data$type0[data$y == 2016]) + sum(data$type1[data$y == 2016]) + sum(data$type2[data$y == 2016]) + sum(data$type3[data$y == 2016])
+# calls2017 = sum(data$type0[data$y == 2017]) + sum(data$type1[data$y == 2017]) + sum(data$type2[data$y == 2017]) + sum(data$type3[data$y == 2017])
+# calls2018 = sum(data$type0[data$y == 2018]) + sum(data$type1[data$y == 2018]) + sum(data$type2[data$y == 2018]) + sum(data$type3[data$y == 2018])
+
+# Plot of the evolution of number of calls
+# yearcall = cbind(calls2007,calls2008, calls2009, calls2010, calls2011, calls2012, calls2013, calls2014, calls2015, calls2016, calls2017, calls2018)
+# year = c(2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018)
+# hist(yearcall)
+# plot(year, yearcall)
+# 
+# # Rate of total calls for each type
+# rate0 = 87087/4079
+# rate1 = 34116/4079
+# rate2 = 8983/4079
+# rate3 = 4520/4079
+
+# par(mfrow=c(2,2))
+# plot(data$wd,data$type0, col= rainbow(7))
+# plot(data$wd,data$type1, col= rainbow(7))
+# plot(data$wd,data$type2, col= rainbow(7))
+# plot(data$wd,data$type3, col= rainbow(7))
+# 
+# # install.packages("RColorBrewer")
+# library(RColorBrewer)
+# # display.brewer.all()
+# 
+# plot(data$wd,data$Nt, col= brewer.pal(n = 7, name = "PuBu"),ylab="Total number of calls",xlab="Day of the week", main="Total calls for each type given Rain and Weekday")
+```
+
+```{r include=FALSE}
+data$Rain = data$prec
+data$Rain[data$Rain < 2]=0
+data$Rain[data$Rain > 15 & data$Rain != "weak" & data$Rain != "normal" ]=1 
+data$Rain[data$prec >=2 & data$prec <= 15]=1
+```
+ 
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width='12.2cm'}
+library(ggpubr)
+library(ggplot2)
+# plot1 = ggplot(data, aes(x=wd, y=type0, color=Rain)) +
+#     geom_point(alpha=0.7) + theme_bw()+
+#   guides(colour = "none")
+# plot2 = ggplot(data, aes(x=wd, y=type1, color=Rain)) +
+#     geom_point(alpha=0.7) + theme_bw()+
+#   guides(colour = "none")
+# plot3 = ggplot(data, aes(x=wd, y=type2, color=Rain)) +
+#     geom_point(alpha=0.7) + theme_bw()+
+#   guides(colour = "none")
+# plot4 = ggplot(data, aes(x=wd, y=type3, color=Rain)) +
+#     geom_point(alpha=0.7) + theme_bw()
+# ggarrange(plot1,plot2,plot3,plot4)
+# ggarrange(plot3,plot4)
+```
+
+```{r}
+# plot1 = ggplot(data, aes(x=wd, y=type0, color=prec)) +
+#     geom_point(alpha=0.7) + theme_bw()
+# plot2 = ggplot(data, aes(x=wd, y=type1, color=prec)) +
+#     geom_point(alpha=0.7) + theme_bw()
+# plot3 = ggplot(data, aes(x=wd, y=type2, color=prec)) +
+#     geom_point(alpha=0.7) + theme_bw()
+# plot4 = ggplot(data, aes(x=wd, y=type3, color=prec)) +
+#     geom_point(alpha=0.7) + theme_bw()
+# ggarrange(plot1,plot2)
+# ggarrange(plot3,plot4)
+```
+
+
+```{r include=FALSE}
+# sum0_by_year <- aggregate(type0 ~ y, data = data, FUN = sum)
+# sum1_by_year <- aggregate(type1 ~ y, data = data, FUN = sum)
+# sum2_by_year <- aggregate(type2 ~ y, data = data, FUN = sum)
+# sum3_by_year <- aggregate(type3 ~ y, data = data, FUN = sum)
+```
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width='12.2cm'}
+# plot5 = ggplot(sum0_by_year, aes(x = y, y = type0)) +
+#     geom_bar(stat = 'identity', fill = "#4fa8e0")   + theme_bw() +
+#     xlab("Year") + ggtitle("Total calls of type0 over the years")
+# plot6 = ggplot(sum1_by_year, aes(x = y, y = type1 ))+
+#     geom_bar(stat = 'identity', fill = "#6c8bab") + theme_bw() +
+#     xlab("Year") + ggtitle("Total calls of type1 over the years")
+# plot7 = ggplot(sum2_by_year, aes(x = y, y = type2 ))+
+#     geom_bar(stat = 'identity', fill ="#72b7e3") + theme_bw() +
+#     xlab("Year") + ggtitle("Total calls of type2 over the years")
+# plot8 = ggplot(sum3_by_year, aes(x = y, y = type3 ))+
+#     geom_bar(stat = 'identity', fill = "#597d94") + theme_bw() +
+#     xlab("Year") + ggtitle("Total calls of type3 over the years")
+# 
+# ggarrange(plot5,plot6)
+# ggarrange(plot7,plot8)
+```
+
+```{r}
+# PROPORTION FOR ALL THE YEAR
+# prop0 = sum(data$type0)/sum(data$Nt)
+# prop1 = sum(data$type1)/sum(data$Nt)
+# prop2 = sum(data$type2)/sum(data$Nt)
+# prop3 = sum(data$type3)/sum(data$Nt)
+# 
+# c(prop0,prop1,prop2,prop3)
+# 
+# # SUBSET OF ALL THE YEARS
+# y2007 = subset(data, data$y == "2007")
+# y2008 = subset(data, data$y == "2008")
+# y2009 = subset(data, data$y == "2009")
+# y2010 = subset(data, data$y == "2010")
+# y2011 = subset(data, data$y == "2011")
+# y2012 = subset(data, data$y == "2012")
+# y2013 = subset(data, data$y == "2013")
+# y2014 = subset(data, data$y == "2014")
+# y2015 = subset(data, data$y == "2015")
+# y2016 = subset(data, data$y == "2016")
+# y2017 = subset(data, data$y == "2017")
+# y2018 = subset(data, data$y == "2018")
+# 
+# # PROPORTION FOR EACH YEAR
+# prop0_y2007 = sum(y2007$type0)/sum(y2007$Nt)
+# prop1_y2007 = sum(y2007$type1)/sum(y2007$Nt)
+# prop2_y2007 = sum(y2007$type2)/sum(y2007$Nt)
+# prop3_y2007 = sum(y2007$type3)/sum(y2007$Nt)
+# c(prop0_y2007,prop1_y2007,prop2_y2007,prop3_y2007)
+# 
+# prop0_y2008 = sum(y2008$type0)/sum(y2008$Nt)
+# prop1_y2008 = sum(y2008$type1)/sum(y2008$Nt)
+# prop2_y2008 = sum(y2008$type2)/sum(y2008$Nt)
+# prop3_y2008 = sum(y2008$type3)/sum(y2008$Nt)
+# c(prop0_y2008,prop1_y2008,prop2_y2008,prop3_y2008)
+# 
+# prop0_y2009 = sum(y2009$type0)/sum(y2009$Nt)
+# prop1_y2009 = sum(y2009$type1)/sum(y2009$Nt)
+# prop2_y2009 = sum(y2009$type2)/sum(y2009$Nt)
+# prop3_y2009 = sum(y2009$type3)/sum(y2009$Nt)
+# c(prop0_y2009,prop1_y2009,prop2_y2009,prop3_y2009)
+# 
+# prop0_y2010 = sum(y2010$type0)/sum(y2010$Nt)
+# prop1_y2010 = sum(y2010$type1)/sum(y2010$Nt)
+# prop2_y2010 = sum(y2010$type2)/sum(y2010$Nt)
+# prop3_y2010 = sum(y2010$type3)/sum(y2010$Nt)
+# c(prop0_y2010,prop1_y2010,prop2_y2010,prop3_y2010)
+# 
+# prop0_y2011 = sum(y2011$type0)/sum(y2011$Nt)
+# prop1_y2011 = sum(y2011$type1)/sum(y2011$Nt)
+# prop2_y2011 = sum(y2011$type2)/sum(y2011$Nt)
+# prop3_y2011 = sum(y2011$type3)/sum(y2011$Nt)
+# c(prop0_y2011,prop1_y2011,prop2_y2011,prop3_y2011)
+# 
+# prop0_y2012 = sum(y2012$type0)/sum(y2012$Nt)
+# prop1_y2012 = sum(y2012$type1)/sum(y2012$Nt)
+# prop2_y2012 = sum(y2012$type2)/sum(y2012$Nt)
+# prop3_y2012 = sum(y2012$type3)/sum(y2012$Nt)
+# c(prop0_y2012,prop1_y2012,prop2_y2012,prop3_y2012)
+# 
+# prop0_y2013 = sum(y2013$type0)/sum(y2013$Nt)
+# prop1_y2013 = sum(y2013$type1)/sum(y2013$Nt)
+# prop2_y2013 = sum(y2013$type2)/sum(y2013$Nt)
+# prop3_y2013 = sum(y2013$type3)/sum(y2013$Nt)
+# c(prop0_y2013,prop1_y2013,prop2_y2013,prop3_y2013)
+# 
+# prop0_y2014 = sum(y2014$type0)/sum(y2014$Nt)
+# prop1_y2014 = sum(y2014$type1)/sum(y2014$Nt)
+# prop2_y2014 = sum(y2014$type2)/sum(y2014$Nt)
+# prop3_y2014 = sum(y2014$type3)/sum(y2014$Nt)
+# c(prop0_y2014,prop1_y2014,prop2_y2014,prop3_y2014)
+# 
+# prop0_y2015 = sum(y2015$type0)/sum(y2015$Nt)
+# prop1_y2015 = sum(y2015$type1)/sum(y2015$Nt)
+# prop2_y2015 = sum(y2015$type2)/sum(y2015$Nt)
+# prop3_y2015 = sum(y2015$type3)/sum(y2015$Nt)
+# c(prop0_y2015,prop1_y2015,prop2_y2015,prop3_y2015)
+# 
+# prop0_y2016 = sum(y2016$type0)/sum(y2016$Nt)
+# prop1_y2016 = sum(y2016$type1)/sum(y2016$Nt)
+# prop2_y2016 = sum(y2016$type2)/sum(y2016$Nt)
+# prop3_y2016 = sum(y2016$type3)/sum(y2016$Nt)
+# c(prop0_y2016,prop1_y2016,prop2_y2016,prop3_y2016)
+# 
+# prop0_y2017 = sum(y2017$type0)/sum(y2017$Nt)
+# prop1_y2017 = sum(y2017$type1)/sum(y2017$Nt)
+# prop2_y2017 = sum(y2017$type2)/sum(y2017$Nt)
+# prop3_y2017 = sum(y2017$type3)/sum(y2017$Nt)
+# c(prop0_y2017,prop1_y2017,prop2_y2017,prop3_y2017)
+# 
+# prop0_y2018 = sum(y2018$type0)/sum(y2018$Nt)
+# prop1_y2018 = sum(y2018$type1)/sum(y2018$Nt)
+# prop2_y2018 = sum(y2018$type2)/sum(y2018$Nt)
+# prop3_y2018 = sum(y2018$type3)/sum(y2018$Nt)
+# c(prop0_y2018,prop1_y2018,prop2_y2018,prop3_y2018)
+# 
+# # TOTAL NUMBER OF CALLS FOR EACH YEAR
+# c(sum(y2007$Nt),sum(y2008$Nt),sum(y2009$Nt),sum(y2010$Nt))
+# 
+# c(sum(y2011$Nt),sum(y2012$Nt),sum(y2013$Nt),sum(y2014$Nt))
+# 
+# c(sum(y2015$Nt),sum(y2016$Nt),sum(y2017$Nt),sum(y2018$Nt))
+# 
+# # CORRELATION
+# correlation = data[,c(1,2,3,4,17,16,15)]
+# library(corrplot)
+# M<-cor(correlation)
+# corrplot(M, method="number")
+
+library(forecast)
+# Define the time series object for stores
+# tsstores = ts(data$type0,start=c(2007,9,1),frequency = 365)
+# plot(tsstores, main = "Advance retail sales stores", ylab = "Millions of dollars", col = "darkred", lwd = 0.1, cex.main = 1.5)
+```
+
+```{r}
+library(base)
+class(data$d)
+             
+data$date = paste0(data$d,sep="/",data$m,sep="/", data$y)
+data$date = as.Date(data$date,format="%d/%m/%Y") 
+
+p1 <- ggplot(data, aes(x=date, y=type0)) +
+  geom_line(colour="#4fa8e0")+scale_x_date(date_labels = "%Y %b") + theme_bw()
+p2 <- ggplot(data, aes(x=date, y=type1)) +
+  geom_line(colour="#6c8bab")+scale_x_date(date_labels = "%Y %b") + theme_bw()
+p3 <- ggplot(data, aes(x=date, y=type2)) +
+  geom_line(colour="#72b7e3")+scale_x_date(date_labels = "%Y %b") + theme_bw()
+p4 <- ggplot(data, aes(x=date, y=type3)) +
+  geom_line(colour="#597d94")+scale_x_date(date_labels = "%Y %b") + theme_bw()
+ggarrange(p1,p2,p3,p4,ncol=1)
+```
+
+
+## CODE
+
+```{r}
+X_t = data[-4079, c(1,2,3,4)]
+X_w = data[-1, c(9,10,11,12,13,14,17)]
+X = cbind(X_t, X_w)
+
+rm(X_t)
+rm(X_w)
+
+library(rstan)
+rstan_options(auto_write = TRUE)
+#Sys.setenv(LOCAL_CPPFLAGS = '-march=native -mtune=native')
+#options(mc.cores = parallel::detectCores())
+```
+
+```{r}
+mlogit_model = "
+data {
+  int K; // 4 types of calls
+  int t; // cuantos dias predecimos
+  int D; // cuantos predictors
+  int y[t,K]; // para cada día un vector con resultados
+  matrix[t, D] x;
+}
+parameters {
+  matrix[D, K] beta;
+  real alpha;
+}
+model {
+  matrix[t, K] x_beta = x * beta;
+
+  to_vector(beta) ~ normal(0, 0.1);
+  
+  alpha ~ normal(0,0.1);
+
+  for (i in 1:t)
+    y[i,K] ~ categorical_logit(alpha + x_beta[i]');
+}"
+```
+
+We do the fit by training the model with 4078 observations and we obtain the following results for the betas and alpha.
+
+```{r, results="hide"}
+#fit = stan(model_code=mlogit_model, data=list(y = data[2:4079,1:4], t=4078, K=4, D=11, x = X[seq(4078),]), iter=5000, chains = 1)
+```
+```{r}
+#print(fit)
+#saveRDS(fit, "fit_desde_obs_2.rds")
+```
+
+# FIT1
+
+```{r}
+leyendo_datos <- readRDS("fit1.rds")
+
+df_of_draws <- as.data.frame(leyendo_datos)
+print(colnames(leyendo_datos))
+
+sets_of_betas = split.default(df_of_draws, rep(1:4, each = 11))
+
+observaciones = data[,-c(5,6,7,8,15,16,18)] 
+
+sets_of_betas
+
+alpha = mean(sets_of_betas$'1'[,12])
+beta1 = sets_of_betas$'1'[,-c(12,13)]
+betas1 = colMeans(beta1)
+beta2 = sets_of_betas$'2'
+betas2 = colMeans(beta2)
+beta3 = sets_of_betas$'3'
+betas3 = colMeans(beta3)
+beta4 = sets_of_betas$'4'
+betas4 = colMeans(beta4)
+x_beta = as.matrix(cbind(betas1,betas2,betas3,betas4))
+x_beta
+library(xtable)
+bmatrix(x_beta)
+```
+
+```{r} 
+type=c(1,2,3,4) 
+k=4078
+dd=matrix(0,nrow=k,ncol=length(type))
+  for (j in 1:k){ 
+    for (i in 1:4){
+     dd[j,i] = as.matrix(X[j,])%*%x_beta[,i]+alpha
+  } 
+} 
+p = exp(dd)/(1+exp(dd))  
+props = p 
+for (j in 1:k){
+  props[j,] = p[j,]/sum(p[j,])
+} 
+``` 
+
+```{r}
+# Intervals
+k=4078
+gammas=list()
+gamma_k=vector
+for (i in 1:k){
+ gamma_k = qgamma(c(0.025,0.975), sum(data$Nt[seq(i)]), i)
+ gammas[[i]] = gamma_k
+}
+
+# Posterior mean
+posterior_means = list()
+posterior_mean_k = numeric(0)
+for (i in 1:k){
+  posterior_mean_k = (sum(data$Nt[seq(i)])+0.5)/i
+  posterior_means[[i]] = posterior_mean_k
+}
+
+# Total number of calls each day
+Nts = list()
+Nt_k = numeric(0)
+for (i in 1:k){
+  Nt_k = round(mean(rpois(1000,posterior_means[[i]])),0)
+  Nts[[i]] = Nt_k
+}
+```
+
+```{r}
+k=4078#number of observations
+i=1000 #number of simulations
+
+# conteos = rmultinom(i,N[1:k], props[1:k,])
+
+conteos=list()
+conteo_i = numeric(0)
+for (j in 1:k){
+  conteo_i=rmultinom(i,Nts[[j]],props[j,])
+  conteos[[j]] <- conteo_i
+}
+# round(mean(conteos[[100]][1,]))
+
+# Obtenemos los datos de la lista de conteos para cada dia
+
+vector1 = c() 
+vector2 = c() 
+vector3 = c() 
+vector4 = c() 
+for (i in 1:4078){
+  vector1[i]=round(mean(conteos[[i]][1,]))
+  vector2[i]=round(mean(conteos[[i]][2,]))
+  vector3[i]=round(mean(conteos[[i]][3,]))
+  vector4[i]=round(mean(conteos[[i]][4,]))
+  
+}
+
+# Base de datos de resultados
+
+results = data[-1,]
+results$type0 = vector1
+results$type1 = vector2
+results$type2 = vector3
+results$type3 = vector4
+results$Nt = rowSums(results[,1:4])
+
+results_1 = results
+
+mae(results_1$type0, data[-1,]$type0)
+mae(results_1$type1, data[-1,]$type1)
+mae(results_1$type2, data[-1,]$type2)
+mae(results_1$type3, data[-1,]$type3)
+mae(results_1$Nt, data[-1,]$Nt)
+```
+# FIT100
+
+Cogiendo solo 100 dias.
+
+```{r, results="hide"}
+#fit3 = stan(model_code=mlogit_model, data=list(y = data[1:100,1:4], t=100, K=4, D=11, x = X[seq(100),]), iter=5000, chains = 1)
+```
+
+```{r}
+# print(fit3)
+# fit3 = saveRDS(fit3, "fit_100.rds")
+```
+
+```{r}
+leyendo_datos <- readRDS("fit_100.rds")
+print(leyendo_datos)
+df_of_draws <- as.data.frame(leyendo_datos)
+print(colnames(leyendo_datos))
+
+sets_of_betas = split.default(df_of_draws, rep(1:4, each = 11))
+
+observaciones = data[,-c(5,6,7,8,15,16,18)] 
+
+sets_of_betas
+
+alpha = mean(sets_of_betas$'1'[,12])
+beta1 = sets_of_betas$'1'[,-c(12,13)]
+betas1 = colMeans(beta1)
+beta2 = sets_of_betas$'2'
+betas2 = colMeans(beta2)
+beta3 = sets_of_betas$'3'
+betas3 = colMeans(beta3)
+beta4 = sets_of_betas$'4'
+betas4 = colMeans(beta4)
+x_beta = as.matrix(cbind(betas1,betas2,betas3,betas4))
+bmatrix(x_beta)
+```
+
+```{r} 
+type=c(1,2,3,4) 
+k=4078
+dd=matrix(0,nrow=k,ncol=length(type))
+  for (j in 1:k){ 
+    for (i in 1:4){
+     dd[j,i] = as.matrix(X[j,])%*%x_beta[,i]+alpha
+  } 
+} 
+p = exp(dd)/(1+exp(dd))  
+props = p 
+for (j in 1:k){
+  props[j,] = p[j,]/sum(p[j,])
+} 
+``` 
+
+```{r}
+# Intervals
+k=4078
+gammas=list()
+gamma_k=vector
+for (i in 1:k){
+ gamma_k = qgamma(c(0.025,0.975), sum(data$Nt[seq(i)]), i)
+ gammas[[i]] = gamma_k
+}
+
+# Posterior mean
+posterior_means = list()
+posterior_mean_k = numeric(0)
+for (i in 1:k){
+  posterior_mean_k = (sum(data$Nt[seq(i)])+0.5)/i
+  posterior_means[[i]] = posterior_mean_k
+}
+
+# Total number of calls each day
+Nts = list()
+Nt_k = numeric(0)
+for (i in 1:k){
+  Nt_k = round(mean(rpois(1000,posterior_means[[i]])),0)
+  Nts[[i]] = Nt_k
+}
+```
+
+```{r}
+k=4078#number of observations
+i=1000 #number of simulations
+
+# conteos = rmultinom(i,N[1:k], props[1:k,])
+
+conteos=list()
+conteo_i = numeric(0)
+for (j in 1:k){
+  conteo_i=rmultinom(i,Nts[[j]],props[j,])
+  conteos[[j]] <- conteo_i
+}
+# round(mean(conteos[[100]][1,]))
+
+# Obtenemos los datos de la lista de conteos para cada dia
+
+vector1 = c() 
+vector2 = c() 
+vector3 = c() 
+vector4 = c() 
+for (i in 1:4078){
+  vector1[i]=round(mean(conteos[[i]][1,]))
+  vector2[i]=round(mean(conteos[[i]][2,]))
+  vector3[i]=round(mean(conteos[[i]][3,]))
+  vector4[i]=round(mean(conteos[[i]][4,]))
+  
+}
+
+# Base de datos de resultados
+
+results = data[-1,]
+results$type0 = vector1
+results$type1 = vector2
+results$type2 = vector3
+results$type3 = vector4
+results$Nt = rowSums(results[,1:4])
+
+results_100 = results
+
+mae(results_100$type0, data[-1,]$type0)
+mae(results_100$type1, data[-1,]$type1)
+mae(results_100$type2, data[-1,]$type2)
+mae(results_100$type3, data[-1,]$type3)
+mae(results_100$Nt, data[-1,]$Nt)
+```
+
+# FIT 1000
+
+Cogiendo 1000 solo por curiosidad.
+
+```{r, results="hide"}
+#fit2 = stan(model_code=mlogit_model, data=list(y = data[1:1000,1:4], t=1000, K=4, D=11, x = X[seq(1000),]), iter=5000, chains = 1)
+```
+
+```{r}
+# print(fit2)
+# fit2 = saveRDS(fit2, "fit_1000.rds")
+```
+
+```{r}
+leyendo_datos <- readRDS("fit_1000.rds")
+
+df_of_draws <- as.data.frame(leyendo_datos)
+print(colnames(leyendo_datos))
+
+sets_of_betas = split.default(df_of_draws, rep(1:4, each = 11))
+
+observaciones = data[,-c(5,6,7,8,15,16,18)] 
+
+sets_of_betas
+
+alpha = mean(sets_of_betas$'1'[,12])
+beta1 = sets_of_betas$'1'[,-c(12,13)]
+betas1 = colMeans(beta1)
+beta2 = sets_of_betas$'2'
+betas2 = colMeans(beta2)
+beta3 = sets_of_betas$'3'
+betas3 = colMeans(beta3)
+beta4 = sets_of_betas$'4'
+betas4 = colMeans(beta4)
+x_beta = as.matrix(cbind(betas1,betas2,betas3,betas4))
+bmatrix(x_beta)
+```
+
+```{r} 
+type=c(1,2,3,4) 
+k=4078
+dd=matrix(0,nrow=k,ncol=length(type))
+  for (j in 1:k){ 
+    for (i in 1:4){
+     dd[j,i] = as.matrix(X[j,])%*%x_beta[,i]+alpha
+  } 
+} 
+p = exp(dd)/(1+exp(dd))  
+props = p 
+for (j in 1:k){
+  props[j,] = p[j,]/sum(p[j,])
+} 
+``` 
+
+```{r}
+# Intervals
+k=4078
+gammas=list()
+gamma_k=vector
+for (i in 1:k){
+ gamma_k = qgamma(c(0.025,0.975), sum(data$Nt[seq(i)]), i)
+ gammas[[i]] = gamma_k
+}
+
+# Posterior mean
+posterior_means = list()
+posterior_mean_k = numeric(0)
+for (i in 1:k){
+  posterior_mean_k = (sum(data$Nt[seq(i)])+0.5)/i
+  posterior_means[[i]] = posterior_mean_k
+}
+
+# Total number of calls each day
+Nts = list()
+Nt_k = numeric(0)
+for (i in 1:k){
+  Nt_k = round(mean(rpois(1000,posterior_means[[i]])),0)
+  Nts[[i]] = Nt_k
+}
+```
+
+```{r}
+k=4078#number of observations
+i=1000 #number of simulations
+
+# conteos = rmultinom(i,N[1:k], props[1:k,])
+
+conteos=list()
+conteo_i = numeric(0)
+for (j in 1:k){
+  conteo_i=rmultinom(i,Nts[[j]],props[j,])
+  conteos[[j]] <- conteo_i
+}
+# round(mean(conteos[[100]][1,]))
+
+# Obtenemos los datos de la lista de conteos para cada dia
+
+vector1 = c() 
+vector2 = c() 
+vector3 = c() 
+vector4 = c() 
+for (i in 1:4078){
+  vector1[i]=round(mean(conteos[[i]][1,]))
+  vector2[i]=round(mean(conteos[[i]][2,]))
+  vector3[i]=round(mean(conteos[[i]][3,]))
+  vector4[i]=round(mean(conteos[[i]][4,]))
+  
+}
+
+# Base de datos de resultados
+
+results = data[-1,]
+results$type0 = vector1
+results$type1 = vector2
+results$type2 = vector3
+results$type3 = vector4
+results$Nt = rowSums(results[,1:4])
+
+results_1000 = results
+
+mae(results_1000$type0, data[-1,]$type0)
+mae(results_1000$type1, data[-1,]$type1)
+mae(results_1000$type2, data[-1,]$type2)
+mae(results_1000$type3, data[-1,]$type3)
+mae(results_1000$Nt, data[-1,]$Nt)
+
+```
+
+
+# FIT HASTA 2016
+
+Cogiendo hasta el año 2016.
+
+```{r, results="hide"}
+# fit4 = stan(model_code=mlogit_model, data=list(y = data[1:3044,1:4], t=3044, K=4, D=11, x = X[seq(3044),]), iter=5000, chains = 1)
+```
+
+```{r}
+# print(fit4)
+# fit4 = saveRDS(fit4, "fit_hasta_2016.rds")
+```
+
+```{r}
+leyendo_datos <- readRDS("fit_hasta_2016.rds")
+
+df_of_draws <- as.data.frame(leyendo_datos)
+print(colnames(leyendo_datos))
+
+sets_of_betas = split.default(df_of_draws, rep(1:4, each = 11))
+
+observaciones = data[,-c(5,6,7,8,15,16,18)] 
+
+sets_of_betas
+
+alpha = mean(sets_of_betas$'1'[,12])
+beta1 = sets_of_betas$'1'[,-c(12,13)]
+betas1 = colMeans(beta1)
+beta2 = sets_of_betas$'2'
+betas2 = colMeans(beta2)
+beta3 = sets_of_betas$'3'
+betas3 = colMeans(beta3)
+beta4 = sets_of_betas$'4'
+betas4 = colMeans(beta4)
+x_beta = as.matrix(cbind(betas1,betas2,betas3,betas4))
+bmatrix(x_beta)
+```
+
+```{r} 
+type=c(1,2,3,4) 
+k=4078
+dd=matrix(0,nrow=k,ncol=length(type))
+  for (j in 1:k){ 
+    for (i in 1:4){
+     dd[j,i] = as.matrix(X[j,])%*%x_beta[,i]+alpha
+  } 
+} 
+p = exp(dd)/(1+exp(dd))  
+props = p 
+for (j in 1:k){
+  props[j,] = p[j,]/sum(p[j,])
+} 
+``` 
+
+```{r}
+# Intervals
+k=4078
+gammas=list()
+gamma_k=vector
+for (i in 1:k){
+ gamma_k = qgamma(c(0.025,0.975), sum(data$Nt[seq(i)]), i)
+ gammas[[i]] = gamma_k
+}
+
+# Posterior mean
+posterior_means = list()
+posterior_mean_k = numeric(0)
+for (i in 1:k){
+  posterior_mean_k = (sum(data$Nt[seq(i)])+0.5)/i
+  posterior_means[[i]] = posterior_mean_k
+}
+
+# Total number of calls each day
+Nts = list()
+Nt_k = numeric(0)
+for (i in 1:k){
+  Nt_k = round(mean(rpois(1000,posterior_means[[i]])),0)
+  Nts[[i]] = Nt_k
+}
+```
+
+```{r}
+k=4078#number of observations
+i=1000 #number of simulations
+
+# conteos = rmultinom(i,N[1:k], props[1:k,])
+
+conteos=list()
+conteo_i = numeric(0)
+for (j in 1:k){
+  conteo_i=rmultinom(i,Nts[[j]],props[j,])
+  conteos[[j]] <- conteo_i
+}
+# round(mean(conteos[[100]][1,]))
+
+# Obtenemos los datos de la lista de conteos para cada dia
+
+vector1 = c() 
+vector2 = c() 
+vector3 = c() 
+vector4 = c() 
+for (i in 1:4078){
+  vector1[i]=round(mean(conteos[[i]][1,]))
+  vector2[i]=round(mean(conteos[[i]][2,]))
+  vector3[i]=round(mean(conteos[[i]][3,]))
+  vector4[i]=round(mean(conteos[[i]][4,]))
+  
+}
+
+# Base de datos de resultados
+
+results = data[-1,]
+results$type0 = vector1
+results$type1 = vector2
+results$type2 = vector3
+results$type3 = vector4
+results$Nt = rowSums(results[,1:4])
+
+results_hasta_2016 = results
+
+mae(results_hasta_2016$type0, data[-1,]$type0)
+mae(results_hasta_2016$type1, data[-1,]$type1)
+mae(results_hasta_2016$type2, data[-1,]$type2)
+mae(results_hasta_2016$type3, data[-1,]$type3)
+mae(results_hasta_2016$Nt, data[-1,]$Nt)
+```
+
+# FIT DESDE 2016
+
+Cogiendo desde el año 2016. (falta este)
+
+```{r, results="hide"}
+#fit5 = stan(model_code=mlogit_model, data=list(y = data[3044:4078,1:4], t=1035, K=4, D=11, x = X[-seq(3043),]), iter=5000, chains = 1)
+```
+
+```{r}
+# print(fit5)
+#saveRDS(fit5, "fit_desde_2016.rds")
+```
+
+```{r}
+leyendo_datos <- readRDS("fit_desde_2016.rds")
+
+df_of_draws <- as.data.frame(leyendo_datos)
+print(colnames(leyendo_datos))
+
+sets_of_betas = split.default(df_of_draws, rep(1:4, each = 11))
+
+observaciones = data[,-c(5,6,7,8,15,16,18)] 
+
+sets_of_betas
+
+alpha = mean(sets_of_betas$'1'[,12])
+beta1 = sets_of_betas$'1'[,-c(12,13)]
+betas1 = colMeans(beta1)
+beta2 = sets_of_betas$'2'
+betas2 = colMeans(beta2)
+beta3 = sets_of_betas$'3'
+betas3 = colMeans(beta3)
+beta4 = sets_of_betas$'4'
+betas4 = colMeans(beta4)
+x_beta = as.matrix(cbind(betas1,betas2,betas3,betas4))
+bmatrix(x_beta)
+```
+
+```{r} 
+type=c(1,2,3,4) 
+k=4078
+dd=matrix(0,nrow=k,ncol=length(type))
+  for (j in 1:k){ 
+    for (i in 1:4){
+     dd[j,i] = as.matrix(X[j,])%*%x_beta[,i]+alpha
+  } 
+} 
+p = exp(dd)/(1+exp(dd))  
+props = p 
+for (j in 1:k){
+  props[j,] = p[j,]/sum(p[j,])
+} 
+``` 
+
+```{r}
+# Intervals
+k=4078
+gammas=list()
+gamma_k=vector
+for (i in 1:k){
+ gamma_k = qgamma(c(0.025,0.975), sum(data$Nt[seq(i)]), i)
+ gammas[[i]] = gamma_k
+}
+
+# Posterior mean
+posterior_means = list()
+posterior_mean_k = numeric(0)
+for (i in 1:k){
+  posterior_mean_k = (sum(data$Nt[seq(i)])+0.5)/i
+  posterior_means[[i]] = posterior_mean_k
+}
+
+# Total number of calls each day
+Nts = list()
+Nt_k = numeric(0)
+for (i in 1:k){
+  Nt_k = round(mean(rpois(100,posterior_means[[i]])),0)
+  Nts[[i]] = Nt_k
+}
+```
+
+```{r}
+k=4078#number of observations
+i=200 #number of simulations
+
+# conteos = rmultinom(i,N[1:k], props[1:k,])
+
+conteos=list()
+conteo_i = numeric(0)
+for (j in 1:k){
+  conteo_i=rmultinom(i,Nts[[j]],props[j,])
+  conteos[[j]] <- conteo_i
+}
+# round(mean(conteos[[100]][1,]))
+
+# Obtenemos los datos de la lista de conteos para cada dia
+
+vector1 = c() 
+vector2 = c() 
+vector3 = c() 
+vector4 = c() 
+for (i in 1:4078){
+  vector1[i]=round(mean(conteos[[i]][1,]))
+  vector2[i]=round(mean(conteos[[i]][2,]))
+  vector3[i]=round(mean(conteos[[i]][3,]))
+  vector4[i]=round(mean(conteos[[i]][4,]))
+  
+}
+
+# Base de datos de resultados
+
+results = data[-1,]
+results$type0 = vector1
+results$type1 = vector2
+results$type2 = vector3
+results$type3 = vector4
+results$Nt = rowSums(results[,1:4])
+
+results_desde_2016 = results
+
+mae(results_desde_2016$type0, data[-1,]$type0)
+mae(results_desde_2016$type1, data[-1,]$type1)
+mae(results_desde_2016$type2, data[-1,]$type2)
+mae(results_desde_2016$type3, data[-1,]$type3)
+mae(results_desde_2016$Nt, data[-1,]$Nt)
+```
+
+# FIT PRIOR 0.05
+
+```{r}
+leyendo_datos <- readRDS("fit_0.05.rds")
+
+df_of_draws <- as.data.frame(leyendo_datos)
+print(colnames(leyendo_datos))
+
+sets_of_betas = split.default(df_of_draws, rep(1:4, each = 11))
+
+observaciones = data[,-c(5,6,7,8,15,16,18)] 
+
+sets_of_betas
+
+alpha = mean(sets_of_betas$'1'[,12])
+beta1 = sets_of_betas$'1'[,-c(12,13)]
+betas1 = colMeans(beta1)
+beta2 = sets_of_betas$'2'
+betas2 = colMeans(beta2)
+beta3 = sets_of_betas$'3'
+betas3 = colMeans(beta3)
+beta4 = sets_of_betas$'4'
+betas4 = colMeans(beta4)
+x_beta = as.matrix(cbind(betas1,betas2,betas3,betas4))
+bmatrix(x_beta)
+```
+
+```{r} 
+type=c(1,2,3,4) 
+k=4078
+dd=matrix(0,nrow=k,ncol=length(type))
+  for (j in 1:k){ 
+    for (i in 1:4){
+     dd[j,i] = as.matrix(X[j,])%*%x_beta[,i]+alpha
+  } 
+} 
+p = exp(dd)/(1+exp(dd))  
+props = p 
+for (j in 1:k){
+  props[j,] = p[j,]/sum(p[j,])
+} 
+``` 
+
+```{r}
+# Intervals
+k=4078
+gammas=list()
+gamma_k=vector
+for (i in 1:k){
+ gamma_k = qgamma(c(0.025,0.975), sum(data$Nt[seq(i)]), i)
+ gammas[[i]] = gamma_k
+}
+
+# Posterior mean
+posterior_means = list()
+posterior_mean_k = numeric(0)
+for (i in 1:k){
+  posterior_mean_k = (sum(data$Nt[seq(i)])+0.5)/i
+  posterior_means[[i]] = posterior_mean_k
+}
+
+# Total number of calls each day
+Nts = list()
+Nt_k = numeric(0)
+for (i in 1:k){
+  Nt_k = round(mean(rpois(1000,posterior_means[[i]])),0)
+  Nts[[i]] = Nt_k
+}
+```
+
+```{r}
+k=4078#number of observations
+i=1000 #number of simulations
+
+# conteos = rmultinom(i,N[1:k], props[1:k,])
+
+conteos=list()
+conteo_i = numeric(0)
+for (j in 1:k){
+  conteo_i=rmultinom(i,Nts[[j]],props[j,])
+  conteos[[j]] <- conteo_i
+}
+# round(mean(conteos[[100]][1,]))
+
+# Obtenemos los datos de la lista de conteos para cada dia
+
+vector1 = c() 
+vector2 = c() 
+vector3 = c() 
+vector4 = c() 
+for (i in 1:4078){
+  vector1[i]=round(mean(conteos[[i]][1,]))
+  vector2[i]=round(mean(conteos[[i]][2,]))
+  vector3[i]=round(mean(conteos[[i]][3,]))
+  vector4[i]=round(mean(conteos[[i]][4,]))
+  
+}
+
+# Base de datos de resultados
+
+results = data[-1,]
+results$type0 = vector1
+results$type1 = vector2
+results$type2 = vector3
+results$type3 = vector4
+results$Nt = rowSums(results[,1:4])
+
+results_beta_0.05 = results
+
+rmse(results_beta_0.05$type0, data$type0)
+rmse(results_beta_0.05$type1, data$type1)
+rmse(results_beta_0.05$type2, data$type2)
+rmse(results_beta_0.05$type3, data$type3)
+rmse(results_beta_0.05$Nt, data$Nt)
+```
+
+# GRAFICO
+
+Para plotear en función del tiempo cada grupo de resultados.
+
+```{r}
+results$date = paste0(results$d,sep="/",results$m,sep="/", results$y)
+results$date = as.Date(results$date,format="%d/%m/%Y") 
+
+p1 <- ggplot(results, aes(x=date, y=type0)) +
+  geom_line(colour="#4fa8e0",alpha=1)+
+  geom_line(data = data, aes(x = date, y = type0), color = "red",alpha=0.45) + scale_x_date(date_labels = "%Y %b") + theme_bw()
+p2 <- ggplot(results, aes(x=date, y=type1)) +
+  geom_line(colour="#6c8bab",alpha=1)+
+  geom_line(data = data, aes(x = date, y = type1), color = "red",alpha=0.45) +
+  scale_x_date(date_labels = "%Y %b") + theme_bw()
+p3 <- ggplot(results, aes(x=date, y=type2)) +
+  geom_line(colour="#72b7e3",alpha=1)+
+  geom_line(data = data, aes(x = date, y = type2), color = "red",alpha=0.55)+ 
+  scale_x_date(date_labels = "%Y %b") + theme_bw()
+p4 <- ggplot(results, aes(x=date, y=type3)) +
+  geom_line(colour="#597d94",alpha=1)+
+  geom_line(data = data, aes(x = date, y = type3), color = "red",alpha=0.55) +
+  scale_x_date(date_labels = "%Y %b") + theme_bw()
+ggarrange(p1,p2,p3,p4,ncol=1,)
+
+```
+
+
+
+
+
